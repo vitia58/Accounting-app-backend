@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { Operation, OperationDocument } from 'src/models/Operation';
 import { User, UserDocument } from '../models/User';
 import { comparePassword, hashPassword } from '../other/password-hasher.helper';
 import { CLoginDTO } from './dto/CLoginDTO';
@@ -12,6 +13,7 @@ import { CValidateToken } from './dto/CValidateToken';
 export class AuthService {
     constructor(
         @InjectModel(User.name) private readonly userModel:Model<UserDocument>,
+        @InjectModel(Operation.name) private readonly operationModel:Model<OperationDocument>,
         private readonly jwtService:JwtService,
       ) {
     }
@@ -43,5 +45,10 @@ export class AuthService {
         return {
             exists
         }
+    }
+    async logout(user:CUserDTO) {
+        await this.userModel.findByIdAndDelete(user.id).exec()
+        await this.operationModel.deleteMany({user:user.id}).exec()
+        return
     }
 }

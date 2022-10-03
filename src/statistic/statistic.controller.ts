@@ -17,7 +17,7 @@ export class StatisticController {
     @Get("chart")
     async chart(@ValidatedQuery() q:Period,@GetUser() user:CUserDTO){
         const res = await this.service.getChart(q,user);
-        console.log(res)
+        // console.log(res)
         return res
     }
 }

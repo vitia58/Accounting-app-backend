@@ -29,6 +29,9 @@ export class Operation {
   sumUAH:number
 
   @Prop()
+  courceUSD:number
+
+  @Prop()
   comment:string
 
   @Prop()

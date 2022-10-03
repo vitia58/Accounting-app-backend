@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Callback, Document, HydratedDocument, Model, Types } from 'mongoose';
 import { Operation, OperationDocument } from 'src/models/Operation';
@@ -6,6 +6,7 @@ import { CCreateOperation } from './dto/ССreateOperation';
 import fetch from 'node-fetch';
 import { CUserDTO } from 'src/auth/dto/CUserDTO';
 import { CGetList } from './dto/CGetList';
+import { СUpdateOperation } from './dto/СUpdateOperation';
 
 @Injectable()
 export class OperationsService {
@@ -20,8 +21,9 @@ export class OperationsService {
       Расход:-1,
     }
     const sum = isMinus[operationType]*sumOriginal
-    const sumUAH = ((currency=="$"?await this.getUSDCource():1)*sum).toFixed(2)
-    const {_id} = await new this.operationModel({...other,sum,sumUAH,user:user.id,currency}).save()
+    const courceUSD = await this.getUSDCource();
+    const sumUAH = ((currency=="$"?courceUSD:1)*sum).toFixed(2)
+    const {_id} = await new this.operationModel({...other,sum,sumUAH,user:user.id,currency,courceUSD}).save()
     return {
       result:'success',
       id:_id
@@ -108,10 +110,41 @@ export class OperationsService {
         }
       })
     }
-    console.log(fetchObj)
+    // console.log(fetchObj)
     
     const list = await this.operationModel.find(fetchObj,{},{sort:{_id:-1}}).exec()
-    const result = list.map(({operationName:name,sumUAH:amount,comment,createdAt:time})=>({name,amount,comment,time}))
+    const result = list.map(({operationName:name,sumUAH:amount,comment,createdAt:time,_id:id})=>({name,amount,comment,time,id}))
     return result
+  }
+
+  async info(id: string, user: CUserDTO) {
+    const operation = await this.operationModel.findById(id)
+    if(!operation || operation.user!=user.id)throw new ForbiddenException("Operation not found")
+    const {operationName,category,sum,currency,comment} = operation
+    const operationType:"Доход" | "Расход" = sum>0?"Доход":"Расход"
+    // console.log({operationName,category,operationType,sum:Math.abs(sum),currency,comment})
+    return {operationName,category,operationType,sum:Math.abs(sum)+"",currency,comment}
+  }
+
+  async update(id: string, operationNew: СUpdateOperation, user: CUserDTO) {
+    const {operationType,sum:sumOriginal,currency,...other} = operationNew;
+    const operation = await this.operationModel.findById(id)
+    if(!operation || operation.user!=user.id)throw new ForbiddenException("Operation not found")
+    const isMinus = {
+      Доход:1,
+      Расход:-1,
+    }
+    const sum = isMinus[operationType]*sumOriginal
+    const courceUSD = operation.courceUSD
+    const sumUAH = +((currency=="$"?courceUSD:1)*sum).toFixed(2)
+    // console.log({...other,sum,sumUAH,currency})
+    await operation.updateOne({...other,sum,sumUAH,currency})
+    return {
+      result:'success'
+    }
+  }
+
+  async delete(id:string,user: CUserDTO) {
+    await this.operationModel.deleteMany({user:user.id,_id:id}).exec()
   }
 }
