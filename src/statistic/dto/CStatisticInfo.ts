@@ -1,0 +1,3 @@
+class CStatisticInfo{
+    // period:Period
+}
